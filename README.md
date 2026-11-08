@@ -1,6 +1,6 @@
 
 # Deception<br>
-### Advanced Ultra Stealth LKM Rootkit<br><br>
+### Advanced Ultra Stealth LKM Rootkit<br>
 
 Notice! This software is provided solely for the sake of rootkit research and is NOT intended to be used illegally or unethically. By cloning this repository or copying the source code herewithin, you are agreeing that you will ONLY use this on your own machines for the purpose of rootkit research or on any machine that you have permission to install it on.<br>
 
