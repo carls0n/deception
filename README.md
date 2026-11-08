@@ -19,7 +19,7 @@
 <b>* Filters /proc/kallsyms:</b> Looking up the address of __x64_sys_kill will return nothing.<br>
 <b>* Sets kernel tainted_mask to 0:</b> in /proc/sys/kernel/tainted. Indicates that the kernel has not been tainted<br><br>
 
-Clone this repository, run make and insert module
+Clone this repository, run make and install module
 ```
 git clone https://github.com/carls0n/deception
 ```
