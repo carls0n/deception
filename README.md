@@ -13,7 +13,7 @@ Notice! This software is provided solely for the sake of rootkit research and is
 <b>* Privilege Escalation:</b> The correct kill signal and magic number gives root privileges.<br><br>
 
 ### Additional stealth features
-<b>* Hides from /dev/kmg and dmesg:</b> No tainted/out-of-tree/unsigned entries in dmesg or /dev/kmsg.<br>
+<b>* Hides from /dev/kmsg and dmesg:</b> No tainted/out-of-tree/unsigned entries in dmesg or /dev/kmsg.<br>
 <b>* Hides our hooks from kernel tracing files:</b> Any entries showing deception are filtered.<br>
 <b>* Hides from journalctl:</b> Deception does not show up anywhere in journalctl.<br>
 <b>* Sets kernel tainted_mask to 0:</b> in /proc/sys/kernel/tainted. Indicates that the kernel has not been tainted<br><br>
