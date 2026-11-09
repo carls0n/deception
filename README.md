@@ -3,7 +3,7 @@
 # Deception<br>
 ### Advanced Ultra Stealth LKM Rootkit<br>
 
-<b>Notice!</b> This software is provided solely for the purpose of research and is <b>not</b> intended to be used illegally or unethically. By cloning this repository or copying the source code herewithin, you are agreeing that you will <b>only</b> use this on your own machines for the purpose of research or on any machine that you have permission to install it on.<br>
+<b>Notice!</b> This software is provided solely for the purpose of research and is <b>not</b> intended to be used illegally or unethically. By cloning this repository or copying the source code herewithin, you are agreeing that you will <b>only</b> use this on your own machines for the purpose of research or on any other machine that you have permission to install it on. Use of this rootkit on systems which you do not have authorized access to <b>may</b> violate the computer fraud and abuse act.<br>
 
 ### Features included with deception<br>
 <b>* IPv6 based LKM rootkit:</b> Hooks specifically IPv6 and not IPv4. Use IPv6!<br>
