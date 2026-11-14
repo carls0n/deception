@@ -147,19 +147,19 @@ static inline void fh_remove_hooks(struct ftrace_hook *hooks, size_t count)
 {
     int err;
 
-    /* 1. Stop new invocations of the ftrace callbacks */
-    err = unregister_ftrace_function(&fh_global_ops);
-    if (err) {
-        pr_err("ftrace_helper: unregister_ftrace_function failed: %d\n", err);
+        err = unregister_ftrace_function(&fh_global_ops);
+
+        while (atomic_read(&active_hooks) > 0) {
+        msleep(20);
     }
 
-    /* 2. Wait for all RCU read-side critical sections and ftrace trampolines to finish */
+    #ifdef CONFIG_TASKS_RCU
+    synchronize_rcu_tasks();
+    #endif
     synchronize_rcu();
 
-    /* 3. Wait until all threads currently inside hook wrappers have returned */
-    while (atomic_read(&active_hooks) > 0) {
-        msleep(10);
-    }
+        msleep(50);
 }
+
 
 #endif /* FTRACE_HELPER_H */
