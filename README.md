@@ -1,6 +1,8 @@
 <!--<img width="1280" height="640" alt="decption" src="https://github.com/user-attachments/assets/a26b026f-6d30-43fc-96cb-c3c6030855b9" />-->
 
-<img width="1022" height="604" alt="deception_main" src="https://github.com/user-attachments/assets/3ed1419e-e4d9-4ee7-a3da-35853d49e486" />
+<!--<img width="1022" height="604" alt="deception_main" src="https://github.com/user-attachments/assets/3ed1419e-e4d9-4ee7-a3da-35853d49e486" />-->
+
+<img width="1022" height="604" alt="ezgif-47da37da5d8c7b13" src="https://github.com/user-attachments/assets/3d746b60-a842-48e3-8077-95761d8d2b51" />
 
 
 ### Advanced Ultra Stealth LKM Rootkit<br>
