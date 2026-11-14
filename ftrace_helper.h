@@ -5,6 +5,12 @@
 #include <linux/linkage.h>
 #include <linux/kprobes.h>
 #include <linux/version.h>
+#include <linux/atomic.h>
+#include <linux/delay.h>
+#include <linux/rcupdate.h>
+
+static atomic_t active_hooks = ATOMIC_INIT(0);
+
 
 #define HOOK(_name, _hook, _orig)   \
 {                                   \
@@ -139,19 +145,21 @@ err_rollback:
 
 static inline void fh_remove_hooks(struct ftrace_hook *hooks, size_t count)
 {
-    typedef unsigned long (*ftrace_location_t)(unsigned long ip);
-    ftrace_location_t ftrace_location_fn = (ftrace_location_t)fh_lookup_fn("ftrace_location");
-    size_t i;
+    int err;
 
-    unregister_ftrace_function(&fh_global_ops);
+    /* 1. Stop new invocations of the ftrace callbacks */
+    err = unregister_ftrace_function(&fh_global_ops);
+    if (err) {
+        pr_err("ftrace_helper: unregister_ftrace_function failed: %d\n", err);
+    }
 
-    for (i = 0; i < count; i++) {
-        unsigned long fentry_addr = ftrace_location_fn ? ftrace_location_fn(hooks[i].address) : 0;
-        if (!fentry_addr)
-            fentry_addr = hooks[i].address;
-        ftrace_set_filter_ip(&fh_global_ops, fentry_addr, 1, 0);
+    /* 2. Wait for all RCU read-side critical sections and ftrace trampolines to finish */
+    synchronize_rcu();
+
+    /* 3. Wait until all threads currently inside hook wrappers have returned */
+    while (atomic_read(&active_hooks) > 0) {
+        msleep(10);
     }
 }
 
 #endif /* FTRACE_HELPER_H */
-
