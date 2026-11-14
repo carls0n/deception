@@ -1,4 +1,4 @@
-<img width="1280" height="640" alt="decption" src="https://github.com/user-attachments/assets/a26b026f-6d30-43fc-96cb-c3c6030855b9" />
+<!--<img width="1280" height="640" alt="decption" src="https://github.com/user-attachments/assets/a26b026f-6d30-43fc-96cb-c3c6030855b9" />-->
 
 <img width="1022" height="604" alt="deception_main" src="https://github.com/user-attachments/assets/3ed1419e-e4d9-4ee7-a3da-35853d49e486" />
 
