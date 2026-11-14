@@ -1,5 +1,8 @@
 <img width="1280" height="640" alt="decption" src="https://github.com/user-attachments/assets/a26b026f-6d30-43fc-96cb-c3c6030855b9" />
 
+<img width="1022" height="604" alt="deception_main" src="https://github.com/user-attachments/assets/3ed1419e-e4d9-4ee7-a3da-35853d49e486" />
+
+
 ### Advanced Ultra Stealth LKM Rootkit<br>
 
 <b>Notice!</b> This software is provided solely for the purpose of research and is <b>not</b> intended to be used illegally or unethically. By cloning this repository or copying the source code herewithin, you are agreeing that you will <b>only</b> use this on your own machines for the purpose of research or on any other machine that you have permission to install it on. Use of this rootkit on systems which you do not have authorized access to <b>may</b> violate the computer fraud and abuse act.<br>
