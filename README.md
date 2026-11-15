@@ -4,7 +4,9 @@
 
 <!--<img width="1024" height="682" alt="Deception (6)" src="https://github.com/user-attachments/assets/eb7d65bb-35e0-41cf-946f-01fa41037902" /><br>-->
 
-![url](https://repository-images.githubusercontent.com/1449993335/a542b6bd-8208-44d5-822a-38612251465a)<br>
+<img width="1024" height="600" alt="Deception (6)" src="https://repository-images.githubusercontent.com/1449993335/a542b6bd-8208-44d5-822a-38612251465a" /><br>
+
+<!--![url](https://repository-images.githubusercontent.com/1449993335/a542b6bd-8208-44d5-822a-38612251465a)<br>-->
 
 
 <b>Notice!</b> This software is provided solely for the purpose of research and is <b>not</b> intended to be used illegally or unethically. By cloning this repository or copying the source code herewithin, you are agreeing that you will <b>only</b> use this on your own machines for the purpose of research or on any other machine that you have permission to install it on. Use of this rootkit on systems which you do not have authorized access to <b>may</b> violate the computer fraud and abuse act.<br>
