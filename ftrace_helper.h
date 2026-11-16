@@ -11,7 +11,6 @@
 
 static atomic_t active_hooks = ATOMIC_INIT(0);
 
-
 #define HOOK(_name, _hook, _orig)   \
 {                                   \
     .name = (_name),                \
@@ -24,17 +23,10 @@ struct ftrace_hook {
     void *function;
     void *original;
     unsigned long address;
+    struct ftrace_ops ops;
 };
 
-static struct ftrace_hook *fh_registered_hooks;
-static size_t fh_registered_count;
 static unsigned long (*fh_lookup_fn)(const char *name);
-
-static struct ftrace_ops fh_global_ops = {
-    .flags = FTRACE_OPS_FL_SAVE_REGS
-           | FTRACE_OPS_FL_RECURSION
-           | FTRACE_OPS_FL_IPMODIFY,
-};
 
 static inline int fh_init_lookup(void)
 {
@@ -55,111 +47,116 @@ static inline int fh_init_lookup(void)
 }
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0)
-static inline void notrace fh_ftrace_thunk(unsigned long ip, unsigned long parent_ip,
-                                           struct ftrace_ops *ops, struct ftrace_regs *fregs)
+static void notrace fh_ftrace_thunk(unsigned long ip, unsigned long parent_ip,
+                                    struct ftrace_ops *ops, struct ftrace_regs *fregs)
 {
     struct pt_regs *regs = ftrace_get_regs(fregs);
-    size_t i;
+    struct ftrace_hook *hook = container_of(ops, struct ftrace_hook, ops);
 
     if (!regs || within_module(parent_ip, THIS_MODULE))
         return;
 
-    for (i = 0; i < fh_registered_count; i++) {
-        unsigned long start = fh_registered_hooks[i].address;
-        if (ip >= start && ip <= start + 16) {
-            regs->ip = (unsigned long)fh_registered_hooks[i].function;
-            break;
-        }
-    }
+    regs->ip = (unsigned long)hook->function;
 }
 #else
-static inline void notrace fh_ftrace_thunk(unsigned long ip, unsigned long parent_ip,
-                                           struct ftrace_ops *ops, struct pt_regs *regs)
+static void notrace fh_ftrace_thunk(unsigned long ip, unsigned long parent_ip,
+                                    struct ftrace_ops *ops, struct pt_regs *regs)
 {
-    size_t i;
+    struct ftrace_hook *hook = container_of(ops, struct ftrace_hook, ops);
 
     if (!regs || within_module(parent_ip, THIS_MODULE))
         return;
 
-    for (i = 0; i < fh_registered_count; i++) {
-        unsigned long start = fh_registered_hooks[i].address;
-        if (ip >= start && ip <= start + 16) {
-            regs->ip = (unsigned long)fh_registered_hooks[i].function;
-            break;
-        }
-    }
+    regs->ip = (unsigned long)hook->function;
 }
 #endif
 
-static inline int fh_install_hooks(struct ftrace_hook *hooks, size_t count)
+static inline int fh_install_hook(struct ftrace_hook *hook)
 {
     typedef unsigned long (*ftrace_location_t)(unsigned long ip);
-    ftrace_location_t ftrace_location_fn;
-    size_t i;
+    static ftrace_location_t ftrace_location_fn;
+    unsigned long sym_addr, fentry_addr = 0;
     int err;
 
     err = fh_init_lookup();
     if (err)
         return err;
 
-    ftrace_location_fn = (ftrace_location_t)fh_lookup_fn("ftrace_location");
-    fh_global_ops.func = (ftrace_func_t)fh_ftrace_thunk;
-    fh_registered_hooks = hooks;
-    fh_registered_count = count;
+    if (!ftrace_location_fn)
+        ftrace_location_fn = (ftrace_location_t)fh_lookup_fn("ftrace_location");
 
-    for (i = 0; i < count; i++) {
-        unsigned long sym_addr = fh_lookup_fn(hooks[i].name);
-        unsigned long fentry_addr = 0;
+    sym_addr = fh_lookup_fn(hook->name);
+    if (!sym_addr)
+        return -ENOENT;
 
-        if (!sym_addr) {
-            err = -ENOENT;
-            goto err_rollback;
-        }
+    if (ftrace_location_fn)
+        fentry_addr = ftrace_location_fn(sym_addr);
+    if (!fentry_addr)
+        fentry_addr = sym_addr;
 
-        if (ftrace_location_fn)
-            fentry_addr = ftrace_location_fn(sym_addr);
-        if (!fentry_addr)
-            fentry_addr = sym_addr;
+    hook->address = fentry_addr;
+    *((unsigned long *)hook->original) = fentry_addr + MCOUNT_INSN_SIZE;
 
-        hooks[i].address = sym_addr;
-        *((unsigned long *)hooks[i].original) = fentry_addr + MCOUNT_INSN_SIZE;
+    hook->ops.func = (ftrace_func_t)fh_ftrace_thunk;
+    hook->ops.flags = FTRACE_OPS_FL_SAVE_REGS
+                    | FTRACE_OPS_FL_RECURSION
+                    | FTRACE_OPS_FL_IPMODIFY;
 
-        err = ftrace_set_filter_ip(&fh_global_ops, fentry_addr, 0, 0);
-        if (err)
-            goto err_rollback;
-    }
-
-    err = register_ftrace_function(&fh_global_ops);
+    err = ftrace_set_filter_ip(&hook->ops, hook->address, 0, 0);
     if (err)
-        goto err_rollback;
+        return err;
+
+    err = register_ftrace_function(&hook->ops);
+    if (err) {
+        ftrace_set_filter_ip(&hook->ops, hook->address, 1, 0);
+        hook->address = 0;
+        return err;
+    }
 
     return 0;
+}
 
-err_rollback:
-    while (i > 0) {
-        i--;
-        ftrace_set_filter_ip(&fh_global_ops, hooks[i].address, 1, 0);
+static inline void fh_remove_hook(struct ftrace_hook *hook)
+{
+    if (!hook->address)
+        return;
+
+    unregister_ftrace_function(&hook->ops);
+    ftrace_set_filter_ip(&hook->ops, hook->address, 1, 0);
+    hook->address = 0;
+}
+
+static inline int fh_install_hooks(struct ftrace_hook *hooks, size_t count)
+{
+    size_t i;
+    int err;
+
+    for (i = 0; i < count; i++) {
+        err = fh_install_hook(&hooks[i]);
+        if (err) {
+            while (i > 0)
+                fh_remove_hook(&hooks[--i]);
+            return err;
+        }
     }
-    return err;
+    return 0;
 }
 
 static inline void fh_remove_hooks(struct ftrace_hook *hooks, size_t count)
 {
-    int err;
+    size_t i;
 
-        err = unregister_ftrace_function(&fh_global_ops);
+    for (i = 0; i < count; i++)
+        fh_remove_hook(&hooks[i]);
 
-        while (atomic_read(&active_hooks) > 0) {
+    while (atomic_read(&active_hooks) > 0)
         msleep(20);
-    }
 
-    #ifdef CONFIG_TASKS_RCU
+#ifdef CONFIG_TASKS_RCU
     synchronize_rcu_tasks();
-    #endif
+#endif
     synchronize_rcu();
-
-        msleep(50);
+    msleep(50);
 }
-
 
 #endif /* FTRACE_HELPER_H */
