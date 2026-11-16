@@ -943,6 +943,7 @@ static void __exit deception_exit(void)
     
     /* 4. Final RCU sync before freeing internal lists/structures */
     synchronize_rcu();
+    synchronize_rcu_tasks();
     clear_all_hidden_pids();
 }
 
