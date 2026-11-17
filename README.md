@@ -21,6 +21,6 @@
 <b>* Hide Processes:</b> kill -62 [pid] toggles visibility. kill -62 0 unhides all processes<br>
 <b>* Gain Root:</b> Kill -64 31337. Magic number is configurable in source code.<br>
 
-Module starts out hidden from both procfs and sysfs. Cant uninstall. You must reboot.<br><br>
+Module starts out hidden from both procfs and sysfs. It can't be uninstalled. You must reboot.<br><br>
 
 You might also enjoy reading <a href="https://carls0n.github.io">defeating LKM and LD_PRELOAD rootkits for fun and profit</a>
