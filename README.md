@@ -22,7 +22,7 @@
 <b>* kill -64 31337:</b> Gain root priviledges. Magic number is configurable in source code.<br>
 
  \* Files and/or folders starting with magic prefix secret_ will be hidden.<br>
-\* Module starts out hidden from both procfs and sysfs. Cant uninsatll. You mst reboot.<br><br>
+\* Module starts out hidden from both procfs and sysfs. Cant uninstall. You must reboot.<br><br>
 
 
 You might also enjoy reading <a href="https://carls0n.github.io">defeating LKM and LD_PRELOAD rootkits for fun and profit</a>
