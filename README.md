@@ -1,6 +1,6 @@
 <img width="1024" height="600" alt="Deception (6)" src="https://repository-images.githubusercontent.com/1449993335/a542b6bd-8208-44d5-822a-38612251465a" /><br>
-
-<b>Notice!</b> This software is provided solely for the purpose of research and is <b>not</b> intended to be used illegally or unethically. By cloning this repository or copying the source code herewithin, you are agreeing that you will <b>only</b> use this on your own machines for the purpose of research or on any other machine that you have permission to install it on. Use of this rootkit on systems which you do not have authorized access to <b>may</b> violate the computer fraud and abuse act.<br>
+<hr>
+<b>Notice!</b> This software is provided solely for the purpose of research and is <b>not</b> intended to be used illegally or unethically. By cloning this repository or copying the source code herewithin, you are agreeing that you will <b>only</b> use this on your own machines for the purpose of research or on any other machine that you have permission to install it on. Use of this rootkit on systems which you do not have authorized access to <b>may</b> violate the computer fraud and abuse act.<br><hr>
 
 ### Features included with deception<br>
 <b>* IPv6 based LKM rootkit:</b> Hooks specifically IPv6 and not IPv4. Use IPv6!<br>
@@ -17,9 +17,9 @@
 <b>* Sets Kernel tainted_mask to 0:</b> in /proc/sys/kernel/tainted. Indicates that the kernel has not been tainted<br><br>
 
 ### Deception rootkit usage<br>
-<b>* kill -61 [port]:</b> Hide a port. Toggles visibility. kill -61 0 unhides all ports.<br>
-<b>* kill -62 [pid]:</b> Hide a process. Toggles visibility. kill -62 0 unhides all processes<br>
-<b>* kill -64 31337:</b> Gain root privileges. Magic number is configurable in source code.<br>
+<b>* Hide a Port:</b> kill -61 [port] toggles visibility. kill -61 0 unhides all ports.<br>
+<b>* Hide a Process:</b> kill -62 [pid] toggles visibility. kill -62 0 unhides all processes<br>
+<b>* Gain Root:</b> Kill -64 31337. Magic number is configurable in source code.<br>
 
  \* Files and/or folders starting with magic prefix secret_ will be hidden.<br>
 \* Module starts out hidden from both procfs and sysfs. Cant uninstall. You must reboot.<br><br>
