@@ -11,10 +11,10 @@
 <b>* Privilege Escalation:</b> The correct kill signal and magic number gives root privileges.<br><br>
 
 ### Additional stealth features
-<b>* Filters kernel logs:</b> No tainted/out-of-tree/unsigned entries in dmesg or /dev/kmsg.<br>
-<b>* Filters kernel tracing files:</b> Any entries showing deception are filtered.<br>
+<b>* Filters Kernel Logs:</b> No tainted/out-of-tree/unsigned entries in dmesg or /dev/kmsg.<br>
+<b>* Filters Kernel Tracing Files:</b> Any entries showing deception are filtered.<br>
 <b>* Filters journalctl:</b> Deception does not show up anywhere in journalctl.<br>
-<b>* Sets kernel tainted_mask to 0:</b> in /proc/sys/kernel/tainted. Indicates that the kernel has not been tainted<br><br>
+<b>* Sets Kernel tainted_mask to 0:</b> in /proc/sys/kernel/tainted. Indicates that the kernel has not been tainted<br><br>
 
 ### Deception rootkit usage<br>
 <b>* kill -61 [port]:</b> Hide a port. Toggles visibility. kill -61 0 unhides all ports.<br>
