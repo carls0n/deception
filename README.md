@@ -17,8 +17,8 @@
 <b>* Sets Kernel tainted_mask to 0:</b> in /proc/sys/kernel/tainted. Indicates that the kernel has not been tainted<br><br>
 
 ### Deception rootkit usage<br>
-<b>* Hide a Port:</b> kill -61 [port] toggles visibility. kill -61 0 unhides all ports.<br>
-<b>* Hide a Process:</b> kill -62 [pid] toggles visibility. kill -62 0 unhides all processes<br>
+<b>* Hide Ports:</b> kill -61 [port] toggles visibility. kill -61 0 unhides all ports.<br>
+<b>* Hide Processes:</b> kill -62 [pid] toggles visibility. kill -62 0 unhides all processes<br>
 <b>* Gain Root:</b> Kill -64 31337. Magic number is configurable in source code.<br>
 
 Module starts out hidden from both procfs and sysfs. Cant uninstall. You must reboot.<br><br>
