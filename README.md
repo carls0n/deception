@@ -19,7 +19,7 @@
 ### Deception rootkit usage<br>
 <b>* kill -61 [port]:</b> Hide a port. Toggles visibility. kill -61 0 unhides all ports.<br>
 <b>* kill -62 [pid]:</b> Hide a process. Toggles visibility. kill -62 0 unhides all processes<br>
-<b>* kill -64 31337:</b> Gain root priviledges. Magic number is configurable in source code.<br>
+<b>* kill -64 31337:</b> Gain root privileges. Magic number is configurable in source code.<br>
 
  \* Files and/or folders starting with magic prefix secret_ will be hidden.<br>
 \* Module starts out hidden from both procfs and sysfs. Cant uninstall. You must reboot.<br><br>
