@@ -13,9 +13,9 @@
 int main(int argc, char *argv[]) {
     if (argc < 3 || argc > 4) {
         fprintf(stderr, "Usage: %s <target_ipv6> <callback_ipv6> [callback_port]\n", argv[0]);
-        fprintf(stderr, "  Global/ULA: %s 2001:db8::50 2001:db8::212 4444\n", argv[0]);
-        fprintf(stderr, "  Link-local: %s fe80::50%%eth0 fe80::212%%eth0 4444\n", argv[0]);
-        fprintf(stderr, "  Loopback:   %s ::1 ::1 4444\n", argv[0]);
+        fprintf(stderr, "  Global/ULA: %s 2001:db8::50 2001:db8::212 65000\n", argv[0]);
+        fprintf(stderr, "  Link-local: %s fe80::50%%eth0 fe80::212%%eth0 65000\n", argv[0]);
+        fprintf(stderr, "  Loopback:   %s ::1 ::1 65000\n", argv[0]);
         return 1;
     }
 
