@@ -9,7 +9,7 @@
 <b>* Module Hiding:</b> Removes module from /proc/modules as well as /sys/module.<br>
 <b>* File/Directory Hiding:</b> Any file or directory starting with secret_ will be hidden.<br>
 <b>* Privilege Escalation:</b> The correct kill signal and magic number gives root privileges.<br>
-<b>* Stealthy Reverse Shell Backdoor:</b> IPv6 implementation of <a href="https://github.com/pjt3591oo/bpfdoor">bpfdoor</a> remote backdoor<br><br>
+<b>* Stealthy Reverse Shell Backdoor:</b> IPv6 implementation of <a href="https://github.com/pjt3591oo/bpfdoor">bpfdoor</a>.<br><br>
 
 ### Additional stealth features
 <b>* Filters Kernel Logs:</b> No tainted/out-of-tree/unsigned entries in dmesg or /dev/kmsg.<br>
