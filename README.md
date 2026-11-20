@@ -15,7 +15,7 @@
 <b>* Filters Kernel Logs:</b> No tainted/out-of-tree/unsigned entries in dmesg or /dev/kmsg.<br>
 <b>* Filters Kernel Tracing Files:</b> Any entries showing deception are filtered.<br>
 <b>* Filters journalctl:</b> Deception does not show up anywhere in journalctl.<br>
-<b>* Sets Kernel tainted_mask to 0:</b> in /proc/sys/kernel/tainted. Indicates that the kernel has not been tainted<br><br>
+<b>* Sets tainted_mask to 0:</b> in /proc/sys/kernel/tainted. Indicates that the kernel has not been tainted<br><br>
 
 ### Deception rootkit usage<br>
 <b>* Hide Ports:</b> kill -61 [port] toggles visibility. kill -61 0 unhides all ports.<br>
