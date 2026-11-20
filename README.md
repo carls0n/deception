@@ -1,6 +1,6 @@
 <img width="1024" height="620" alt="Deception (6)" src="https://repository-images.githubusercontent.com/1449993335/a542b6bd-8208-44d5-822a-38612251465a" /><br>
 
-<b>Notice!</b> This software is provided solely for the purpose of research and is <b>not</b> intended to be used illegally or unethically. By cloning this repository or downloading/copying the source code herein, you are agreeing that you will <b>only</b> use this on your own machines for the purpose of research or on any other machine that you have permission to install it on. Use of this rootkit on systems which you do not have authorized access to violates title 18 U.S.C. section 1030. Also known as the <a href="https://www.justice.gov/jm/jm-9-48000-computer-fraud">computer fraud and abuse act</a>.<br>
+<b>Notice!</b> This software is provided solely for the purpose of research and is <b>not</b> intended to be used illegally or unethically. By cloning this repository or copying the source code herein, you are agreeing that you will <b>only</b> use this on your own machines for the purpose of research or on any other machine that you have permission to install it on. Use of this rootkit on systems which you do not have authorized access to violates title 18 U.S.C. section 1030. Also known as the <a href="https://www.justice.gov/jm/jm-9-48000-computer-fraud">computer fraud and abuse act</a>.<br>
 
 ### Features included with deception<br>
 <b>* IPv6 based LKM rootkit:</b> Hooks specifically IPv6 and not IPv4. Use IPv6!<br>
