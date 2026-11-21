@@ -3,7 +3,6 @@
 <b>Notice!</b> This software is provided solely for the purpose of research and is <b>not</b> intended to be used illegally or unethically. By cloning this repository or copying the source code herein, you are agreeing that you will <b>only</b> use this on your own machines for the purpose of research or on any other machine that you have permission to install it on. Use of this rootkit on systems which you do not have authorized access to violates title 18 U.S.C. section 1030. Also known as the <a href="https://www.justice.gov/jm/jm-9-48000-computer-fraud">computer fraud and abuse act</a>.<br>
 
 ### Features included with deception<br>
-<b>* IPv6 based LKM rootkit:</b> Hooks specifically IPv6 and not IPv4. Use IPv6!<br>
 <b>* Process Hiding:</b> Hide multiple processes. You can unhide them one at a time or all at once.<br>
 <b>* Port Hiding:</b> Hide multiple ports using a kill signal. Unhide them one at a time or all at once.<br>
 <b>* Module Hiding:</b> Removes module from /proc/modules as well as /sys/module.<br>
