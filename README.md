@@ -11,7 +11,7 @@
 <b>* Reverse Shell Backdoor:</b> Stealthy IPv6 implementation of <a href="https://github.com/pjt3591oo/bpfdoor">bpfdoor</a>.
 ### Additional stealth features
 <b>* Filters Kernel Logs:</b> No tainted/out-of-tree/unsigned entries in dmesg or /dev/kmsg.<br>
-<b>* Ftrace filtering:</b> Filters deception from enabled_functions and touched_functions.<br>
+<b>* Ftrace filtering:</b> Filters deception from kernel tracing files.<br>
 <b>* Filters journalctl:</b> Deception does not show up anywhere in journalctl.<br>
 <b>* Sets tainted_mask to 0:</b> in /proc/sys/kernel/tainted. Indicates that the kernel has not been tainted<br><br>
 
